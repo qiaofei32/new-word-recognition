@@ -31,15 +31,21 @@ class NewWordRG(object):
 		self.CONTEXT_PADDING = 1
 		self.MSG_ENCODING = "utf8"
 		self.max_lines_processed = max_lines_processed
+		self.result_dir = ""
 
 		self.corpus_file_list = []
 		if corpus_file is None and os.path.isdir("corpus/"):
+			self.result_dir = ""
 			for file_name in glob.glob("corpus/*"):
 				self.corpus_file_list.append(file_name)
 		elif os.path.isdir(corpus_file):
+			t = corpus_file.replace("\\", "/").split("/")
+			t = [i for i in t if i]
+			self.result_dir = t[-1]
 			for file_name in glob.glob(corpus_file+"/*"):
 				self.corpus_file_list.append(file_name)
 		elif os.path.isfile(corpus_file):
+			self.result_dir = os.path.basename(corpus_file)
 			self.corpus_file_list.append(corpus_file)
 
 		logging.basicConfig()
@@ -73,6 +79,10 @@ class NewWordRG(object):
 		self.ALL_WORDS = self.STOP_WORDS + self.WORD_LIST
 		self.ALL_WORDS_SET = set(self.ALL_WORDS)
 
+		RESULT_BASE_DIR = "result/%s/" % self.result_dir
+		if not os.path.exists(RESULT_BASE_DIR):
+			os.mkdir(RESULT_BASE_DIR)
+
 	def is_eng_num(self, word):
 		"""
 		the word is english or number
@@ -87,7 +97,7 @@ class NewWordRG(object):
 		"""
 		logging.info("="*60)
 		logging.info("[+] gen_char_tf start...")
-		TF_FILE_NAME = "result/CHAR_TF.csv"
+		TF_FILE_NAME = "result/%s/CHAR_TF.csv" % self.result_dir
 		if os.path.exists(TF_FILE_NAME):
 			return True
 		CHAR_TF = {}
@@ -203,7 +213,8 @@ class NewWordRG(object):
 				values.append([k, w_count, str(prefix_dict), str(sufix_dict)])
 
 		result = pandas.DataFrame(values, columns=columns)
-		result.to_csv("result/WORD_COUNT_DICT.csv", index=False)
+		file_name = "result/%s/WORD_COUNT_DICT.csv" % self.result_dir
+		result.to_csv(file_name, index=False)
 		time_e = time.time()
 		msg = "gen_dict cost: %ds" % (time_e - time_b)
 		logging.info(msg)
@@ -265,7 +276,7 @@ class NewWordRG(object):
 
 		values = []
 		columns = ["Word", "TF", "Prefix", "Suffix"]
-		DICT_FILE_NAME = "result/WORD_COUNT_DICT_ALL.csv"
+		DICT_FILE_NAME = "result/%s/WORD_COUNT_DICT_ALL.csv" % self.result_dir
 		if len(WORD_COUNTS) <= 1000 * 1000:
 			WORD_COUNT_LIST = sorted(WORD_COUNTS.items(), key=lambda d: d[1][0], reverse=True)
 			for k, v in WORD_COUNT_LIST:
@@ -281,7 +292,7 @@ class NewWordRG(object):
 		result = pandas.DataFrame(values, columns=columns)
 		result.to_csv(DICT_FILE_NAME, index=False)
 
-		TF_FILE_NAME = "result/CHAR_TF_ALL.csv"
+		TF_FILE_NAME = "result/%s/CHAR_TF_ALL.csv" % self.result_dir
 		columns = ["Word", "TF"]
 		char_tf_list = sorted(CHAR_TF.items(), key=lambda d: d[1], reverse=True)
 		values = [(w.encode("utf8"), c) for w, c in char_tf_list]
@@ -375,11 +386,11 @@ class NewWordRG(object):
 		return MI, entropy_left, entropy_rignt
 
 	def get_words(self):
-		TF_FILE_NAME = "result/CHAR_TF.csv"
+		TF_FILE_NAME = "result/%s/CHAR_TF.csv" % self.result_dir
 		if not os.path.exists(TF_FILE_NAME):
 			self.gen_char_tf()
 
-		MERGE_FILE = "result/WORD_COUNT_DICT.csv"
+		MERGE_FILE = "result/%s/WORD_COUNT_DICT.csv" % self.result_dir
 		if not os.path.exists(MERGE_FILE):
 			self.gen_dict()
 
@@ -435,10 +446,12 @@ class NewWordRG(object):
 
 		columns = ["Word", "TF", "MI", "LE", "RE"]
 		new_word_result = pandas.DataFrame(new_word_values, columns=columns)
-		new_word_result.to_csv("result/NEW-WORD.csv", index=False, encoding="utf8")
+		NEW_WORD_FILE_NAME = "result/%s/NEW-WORD.csv" % self.result_dir
+		new_word_result.to_csv(NEW_WORD_FILE_NAME, index=False, encoding="utf8")
 
 		result = pandas.DataFrame(values, columns=columns)
-		result.to_csv("result/WORD-TF-MI-ENTROPY.csv", index=False, encoding="utf8")
+		WORD_TF_MI_ENTROPY_FILE_NAME = "result/%s/WORD-TF-MI-ENTROPY.csv" % self.result_dir
+		result.to_csv(WORD_TF_MI_ENTROPY_FILE_NAME, index=False, encoding="utf8")
 
 
 if __name__ == "__main__":
