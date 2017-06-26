@@ -11,6 +11,12 @@ import jieba
 import logging
 import argparse
 
+logging.basicConfig()
+logger = logging.getLogger()
+# DEBUG < INFO < WARNING < ERROR < CRITICAL
+# logger.setLevel(logging.INFO)
+logger.setLevel(logging.WARNING)
+
 class NewWordRG(object):
 	"""
 	new word recognition and word frequency count program
@@ -23,10 +29,10 @@ class NewWordRG(object):
 		initializ
 		:param corpus_file: The corpus file name or dir name
 		"""
-		self.MIN_MI = MIN_MI if MIN_MI else 50
-		self.MIN_LENTROPY = MIN_LENTROPY if MIN_LENTROPY else 2.0
-		self.MIN_RENTROPY = MIN_RENTROPY if MIN_RENTROPY else 2.0
-		self.MIN_TF = MIN_TF if MIN_TF else 100
+		self.MIN_MI = MIN_MI if MIN_MI != None else 50
+		self.MIN_LENTROPY = MIN_LENTROPY if MIN_LENTROPY != None else 2.0
+		self.MIN_RENTROPY = MIN_RENTROPY if MIN_RENTROPY != None else 2.0
+		self.MIN_TF = MIN_TF if MIN_TF != None else 100
 		self.CONTEXT_WINDOW = 5
 		self.CONTEXT_PADDING = 1
 		self.MSG_ENCODING = "utf8"
@@ -47,11 +53,6 @@ class NewWordRG(object):
 		elif os.path.isfile(corpus_file):
 			self.result_dir = os.path.basename(corpus_file)
 			self.corpus_file_list.append(corpus_file)
-
-		logging.basicConfig()
-		logger = logging.getLogger()
-		logger.setLevel(logging.INFO)
-		# DEBUG < INFO < WARNING < ERROR < CRITICAL
 
 		if not self.corpus_file_list:
 			logger.error("corpus file not found!")
@@ -79,7 +80,9 @@ class NewWordRG(object):
 		self.ALL_WORDS = self.STOP_WORDS + self.WORD_LIST
 		self.ALL_WORDS_SET = set(self.ALL_WORDS)
 
-		RESULT_BASE_DIR = "result/%s/" % self.result_dir
+		self.result_dir = "result" #NEW
+
+		RESULT_BASE_DIR = "corpus/%s/" % self.result_dir
 		if not os.path.exists(RESULT_BASE_DIR):
 			os.mkdir(RESULT_BASE_DIR)
 
@@ -97,7 +100,7 @@ class NewWordRG(object):
 		"""
 		logging.info("="*60)
 		logging.info("[+] gen_char_tf start...")
-		TF_FILE_NAME = "result/%s/CHAR_TF.csv" % self.result_dir
+		TF_FILE_NAME = "corpus/%s/CHAR_TF.csv" % self.result_dir
 		if os.path.exists(TF_FILE_NAME):
 			return True
 		CHAR_TF = {}
@@ -156,7 +159,8 @@ class NewWordRG(object):
 								if char_i == " ":
 									continue
 
-								for j in range(i+2, min(i+self.CONTEXT_WINDOW+1, context_length)):
+								# for j in range(i+2, min(i+self.CONTEXT_WINDOW+1, context_length)):
+								for j in range(i+2, min(i+self.CONTEXT_WINDOW+1, context_length+1)): # NEW NEW
 									char = context[j-1]
 									if char == " ":
 										break
@@ -213,7 +217,7 @@ class NewWordRG(object):
 				values.append([k, w_count, str(prefix_dict), str(sufix_dict)])
 
 		result = pandas.DataFrame(values, columns=columns)
-		file_name = "result/%s/WORD_COUNT_DICT.csv" % self.result_dir
+		file_name = "corpus/%s/WORD_COUNT_DICT.csv" % self.result_dir
 		result.to_csv(file_name, index=False)
 		time_e = time.time()
 		msg = "gen_dict cost: %ds" % (time_e - time_b)
@@ -276,7 +280,7 @@ class NewWordRG(object):
 
 		values = []
 		columns = ["Word", "TF", "Prefix", "Suffix"]
-		DICT_FILE_NAME = "result/%s/WORD_COUNT_DICT_ALL.csv" % self.result_dir
+		DICT_FILE_NAME = "corpus/%s/WORD_COUNT_DICT_ALL.csv" % self.result_dir
 		if len(WORD_COUNTS) <= 1000 * 1000:
 			WORD_COUNT_LIST = sorted(WORD_COUNTS.items(), key=lambda d: d[1][0], reverse=True)
 			for k, v in WORD_COUNT_LIST:
@@ -292,7 +296,7 @@ class NewWordRG(object):
 		result = pandas.DataFrame(values, columns=columns)
 		result.to_csv(DICT_FILE_NAME, index=False)
 
-		TF_FILE_NAME = "result/%s/CHAR_TF_ALL.csv" % self.result_dir
+		TF_FILE_NAME = "corpus/%s/CHAR_TF_ALL.csv" % self.result_dir
 		columns = ["Word", "TF"]
 		char_tf_list = sorted(CHAR_TF.items(), key=lambda d: d[1], reverse=True)
 		values = [(w.encode("utf8"), c) for w, c in char_tf_list]
@@ -311,8 +315,8 @@ class NewWordRG(object):
 		"""
 		Calculate MI and entropy of a word
 		"""
-		TF_FILE_NAME = "data/CHAR_TF.csv"
-		MERGE_FILE = "data/WORD_COUNT_DICT.csv"
+		TF_FILE_NAME = "corpus/CHAR_TF.csv"
+		MERGE_FILE = "corpus/WORD_COUNT_DICT.csv"
 
 		if CHAR_TF is None:
 			CHAR_TF = pandas.read_csv(TF_FILE_NAME, encoding="utf8", header=0, sep=",", na_filter=False, engine="c")
@@ -386,11 +390,11 @@ class NewWordRG(object):
 		return MI, entropy_left, entropy_rignt
 
 	def get_words(self):
-		TF_FILE_NAME = "result/%s/CHAR_TF.csv" % self.result_dir
+		TF_FILE_NAME = "corpus/%s/CHAR_TF.csv" % self.result_dir
 		if not os.path.exists(TF_FILE_NAME):
 			self.gen_char_tf()
 
-		MERGE_FILE = "result/%s/WORD_COUNT_DICT.csv" % self.result_dir
+		MERGE_FILE = "corpus/%s/WORD_COUNT_DICT.csv" % self.result_dir
 		if not os.path.exists(MERGE_FILE):
 			self.gen_dict()
 
@@ -446,27 +450,27 @@ class NewWordRG(object):
 
 		columns = ["Word", "TF", "MI", "LE", "RE"]
 		new_word_result = pandas.DataFrame(new_word_values, columns=columns)
-		NEW_WORD_FILE_NAME = "result/%s/NEW-WORD.csv" % self.result_dir
+		NEW_WORD_FILE_NAME = "corpus/%s/NEW-WORD.csv" % self.result_dir
 		new_word_result.to_csv(NEW_WORD_FILE_NAME, index=False, encoding="utf8")
 
 		result = pandas.DataFrame(values, columns=columns)
-		WORD_TF_MI_ENTROPY_FILE_NAME = "result/%s/WORD-TF-MI-ENTROPY.csv" % self.result_dir
+		WORD_TF_MI_ENTROPY_FILE_NAME = "corpus/%s/WORD-TF-MI-ENTROPY.csv" % self.result_dir
 		result.to_csv(WORD_TF_MI_ENTROPY_FILE_NAME, index=False, encoding="utf8")
 
 
 if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument("-m", "--method", required=True, help="method to call: gen_dict/gen_char_tf/get_words")
+	parser.add_argument("-f", "--func", required=True, help="function to call: gen_dict/gen_char_tf/get_words")
 	parser.add_argument("-i", "--input", required=False, help="corpus file path or dir name")
 	parser.add_argument("-n", "--lines", required=False, help="max lines to process", type=int)
-	parser.add_argument("-p", "--mi", required=False, help="min MI", type=float)
+	parser.add_argument("-m", "--mi", required=False, help="min MI", type=float)
 	parser.add_argument("-l", "--lentropy", required=False, help="min left entropy", type=float)
 	parser.add_argument("-r", "--rentropy", required=False, help="min right entropy", type=float)
 	parser.add_argument("-t", "--tf", required=False, help="min TF", type=float)
 	args = parser.parse_args()
 	# print args
-	method = args.method
+	func = args.func
 	corpus = args.input
 	lines = args.lines
 	lentropy = args.lentropy
@@ -483,5 +487,5 @@ if __name__ == "__main__":
 		MIN_RENTROPY=rentropy,
 		MIN_TF=tf
 	)
-	func = getattr(M, method)
+	func = getattr(M, func)
 	func()
